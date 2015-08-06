@@ -11,4 +11,9 @@ from scrapy import Item, Field
 class AmazonspiderItem(Item):
     client_url = Field()
     asins = Field()
-    pass
+    error_message = Field()
+
+
+class ReviewItem(Item):
+    reviewer = Field()
+    email = Field()

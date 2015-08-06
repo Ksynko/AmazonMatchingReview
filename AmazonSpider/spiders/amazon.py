@@ -22,7 +22,7 @@ class AmazonSpider(Spider):
     name = 'amazon'
     allowed_domains = ["amazon.com"]
     start_urls = []
-
+    handle_httpstatus_list = [404]
     MAX_RETRIES = 3
 
     user_agent = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:35.0) Gecko'
@@ -52,6 +52,7 @@ class AmazonSpider(Spider):
         print product_asins, '!'*40
         product_asins = json.loads(product_asins)
         self.product_asins = product_asins['asins']
+        print self.product_asins, '!'*40
 
         self.captcha_retries = int(captcha_retries)
         self._cbw = CaptchaBreakerWrapper()
@@ -77,26 +78,34 @@ class AmazonSpider(Spider):
 
     def parse_without_captcha(self, response):
         item = AmazonspiderItem()
-
+        if response.status == 404:
+            item['error_message'] = '404 Invalid URL'
+            return item
         item['client_url'] = response.url
         meta = response.meta.copy()
         meta['item'] = item
         reviews_url = response.xpath(
-            '//a/span[contains(text(), "Reviews")]/../@href').extract()
+            '//a/span[contains(text(), "Reviews")]/../@href |'
+            '//a[@class="a-link-normal"][1]/@href').extract()
+
         if reviews_url:
             reviews_url = 'http://www.amazon.com' + reviews_url[0]
 
-            yield Request(reviews_url, meta=meta,
+            return Request(reviews_url, meta=meta,
                           callback=self.parse_reviews)
+        else:
+            item['error_message'] = 'Amazon blocked, try again'
+            return item
 
     def parse_reviews(self, response):
-
+        print dir(response)
+        print 'PARSE REVIEWS'
         products_asins = response.meta.get('asins')
         item = response.meta.get('item')
 
         review_asins = response.xpath(
             '//table[@class="small"]/tr/td/b/a/@href').re('dp/(.*)/ref')
-
+        print review_asins, '*'*20
         find_asins = []
         for asin in review_asins:
             if asin in products_asins:
