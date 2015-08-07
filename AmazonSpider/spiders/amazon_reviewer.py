@@ -61,7 +61,7 @@ class AmazonSpider(Spider):
                 item = ReviewItem()
 
                 rank = link.xpath(
-                    './td[@class="crNum"]/text()').re('#\s?(\d+)')
+                    './td[@class="crNum"]/text()').re('#\s?(\d{1,5})')
                 if rank:
                     rank = int(rank[0])
                     item['rank'] = rank
@@ -80,23 +80,27 @@ class AmazonSpider(Spider):
             yield result
 
     def parse_email(self, response):
-        item = response.meta.get('item')
+        if not self._has_captcha(response):
+            item = response.meta.get('item')
 
-        email = response.xpath(
-                     '//a[contains(@href,"mailto")]/span/text()'
-                 ).extract()
-        if email:
-            email = email[0].strip()
+            email = response.xpath(
+                         '//a[contains(@href,"mailto")]/span/text()'
+                     ).extract()
+            if email:
+                email = email[0].strip()
+            else:
+                return None
+            cond_set(item, 'name',
+                     response.xpath(
+                         "//div[@class='profile-info']/div/div/span/text()"
+                     ).extract(), string.strip)
+            cond_set_value(item, 'email', email)
+            cond_set_value(item, 'reviewer', response.url)
+
+            return item
         else:
-            return None
-        cond_set(item, 'name',
-                 response.xpath(
-                     "//div[@class='profile-info']/div/div/span/text()"
-                 ).extract(), string.strip)
-        cond_set_value(item, 'email', email)
-        cond_set_value(item, 'reviewer', response.url)
-
-        return item
+            result = self._handle_captcha(response, self.parse_email)
+            return result
 
     # Captcha handling functions.
     def _has_captcha(self, response):
