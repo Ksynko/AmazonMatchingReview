@@ -15,5 +15,7 @@ class AmazonspiderItem(Item):
 
 
 class ReviewItem(Item):
+    name = Field()
+    rank = Field()
     reviewer = Field()
     email = Field()
