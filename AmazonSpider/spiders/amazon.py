@@ -11,6 +11,7 @@ try:
     from captcha_solver import CaptchaBreakerWrapper
 except Exception as e:
     print '!!!!!!!!Captcha breaker is not available due to: %s' % e
+
     class CaptchaBreakerWrapper(object):
         @staticmethod
         def solve_captcha(url):
@@ -49,10 +50,8 @@ class AmazonSpider(Spider):
         else:
             self.url_formatter = url_formatter
 
-        print product_asins, '!'*40
         product_asins = json.loads(product_asins)
         self.product_asins = product_asins['asins']
-        print self.product_asins, '!'*40
 
         self.captcha_retries = int(captcha_retries)
         self._cbw = CaptchaBreakerWrapper()
@@ -86,26 +85,25 @@ class AmazonSpider(Spider):
         meta['item'] = item
         reviews_url = response.xpath(
             '//a/span[contains(text(), "Reviews")]/../@href |'
-            '//a[@class="a-link-normal"][1]/@href').extract()
+            '//a[@class="a-link-normal"]/@href[contains(.,"member-reviews")]'
+        ).extract()
 
         if reviews_url:
             reviews_url = 'http://www.amazon.com' + reviews_url[0]
 
             return Request(reviews_url, meta=meta,
-                          callback=self.parse_reviews)
+                           callback=self.parse_reviews)
         else:
             item['error_message'] = 'Amazon blocked, try again'
             return item
 
     def parse_reviews(self, response):
-        print dir(response)
         print 'PARSE REVIEWS'
         products_asins = response.meta.get('asins')
         item = response.meta.get('item')
 
         review_asins = response.xpath(
             '//table[@class="small"]/tr/td/b/a/@href').re('dp/(.*)/ref')
-        print review_asins, '*'*20
         find_asins = []
         for asin in review_asins:
             if asin in products_asins:

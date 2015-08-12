@@ -12,6 +12,7 @@ try:
     from captcha_solver import CaptchaBreakerWrapper
 except Exception as e:
     print '!!!!!!!!Captcha breaker is not available due to: %s' % e
+
     class CaptchaBreakerWrapper(object):
         @staticmethod
         def solve_captcha(url):
@@ -40,12 +41,6 @@ class AmazonSpider(Spider):
         self.captcha_retries = int(captcha_retries)
         self._cbw = CaptchaBreakerWrapper()
 
-    # def make_requests_from_url(self, _):
-    #     """This method does not apply to this type of spider so it is overriden
-    #     and "disabled" by making it raise an exception unconditionally.
-    #     """
-    #     raise AssertionError("Need a search term.")
-
     def parse(self, response):
         if self._has_captcha(response):
             result = self._handle_captcha(response, self.parse)
@@ -61,9 +56,10 @@ class AmazonSpider(Spider):
                 item = ReviewItem()
 
                 rank = link.xpath(
-                    './td[@class="crNum"]/text()').re('#\s?(\d{1,5})')
+                    './td[@class="crNum"]/text()').re('#\s?(\d+,?\d{0,})')
+
                 if rank:
-                    rank = int(rank[0])
+                    rank = int(rank[0].replace(',',''))
                     item['rank'] = rank
                     meta = {'item': item}
                     yield Request('http://www.amazon.com'+url[0],
@@ -84,8 +80,8 @@ class AmazonSpider(Spider):
             item = response.meta.get('item')
 
             email = response.xpath(
-                         '//a[contains(@href,"mailto")]/span/text()'
-                     ).extract()
+                '//a[contains(@href,"mailto")]/span/text()'
+            ).extract()
             if email:
                 email = email[0].strip()
             else:
