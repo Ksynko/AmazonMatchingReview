@@ -12,6 +12,7 @@ try:
     from captcha_solver import CaptchaBreakerWrapper
 except Exception as e:
     print '!!!!!!!!Captcha breaker is not available due to: %s' % e
+
     class CaptchaBreakerWrapper(object):
         @staticmethod
         def solve_captcha(url):
@@ -40,12 +41,6 @@ class AmazonSpider(Spider):
         self.captcha_retries = int(captcha_retries)
         self._cbw = CaptchaBreakerWrapper()
 
-    # def make_requests_from_url(self, _):
-    #     """This method does not apply to this type of spider so it is overriden
-    #     and "disabled" by making it raise an exception unconditionally.
-    #     """
-    #     raise AssertionError("Need a search term.")
-
     def parse(self, response):
         if self._has_captcha(response):
             result = self._handle_captcha(response, self.parse)
@@ -54,27 +49,54 @@ class AmazonSpider(Spider):
         return result
 
     def parse_without_captcha(self, response):
-        links = response.xpath('//td[@class="img"]/a[1]/@href').extract() [:10]
-        for link in links:
-            yield Request('http://www.amazon.com'+link,
-                          callback=self.parse_email)
+        if not self._has_captcha(response):
+            links = response.xpath('//tr[contains(@id, "reviewer")]')
+            for link in links:
+                url = link.xpath('./td[@class="img"]/a[1]/@href').extract()
+                item = ReviewItem()
 
-        next_page = response.xpath('//a[contains(text(),"Next")]/@href').extract()
-        # if next_page:
-        #     yield Request(next_page[0],callback=self.parse_without_captcha)
+                rank = link.xpath(
+                    './td[@class="crNum"]/text()').re('#\s?(\d+,?\d{0,})')
+
+                if rank:
+                    rank = int(rank[0].replace(',',''))
+                    item['rank'] = rank
+                    meta = {'item': item}
+                    yield Request('http://www.amazon.com'+url[0],
+                                  meta=meta,
+                                  callback=self.parse_email)
+
+            next_page = response.xpath(
+                '//a[contains(text(),"Next")]/@href'
+            ).extract()
+            if next_page:
+                yield Request(next_page[0], callback=self.parse_without_captcha)
+        else:
+            result = self._handle_captcha(response, self.parse_without_captcha)
+            yield result
 
     def parse_email(self, response):
-        item = ReviewItem()
+        if not self._has_captcha(response):
+            item = response.meta.get('item')
 
-        email = response.xpath(
-                     '//a[contains(@href,"mailto")]/span/text()'
-                 ).extract()
-        if email:
-            email = email[0].strip()
-        cond_set_value(item, 'email', email)
-        cond_set_value(item, 'reviewer', response.url)
+            email = response.xpath(
+                '//a[contains(@href,"mailto")]/span/text()'
+            ).extract()
+            if email:
+                email = email[0].strip()
+            else:
+                return None
+            cond_set(item, 'name',
+                     response.xpath(
+                         "//div[@class='profile-info']/div/div/span/text()"
+                     ).extract(), string.strip)
+            cond_set_value(item, 'email', email)
+            cond_set_value(item, 'reviewer', response.url)
 
-        return item
+            return item
+        else:
+            result = self._handle_captcha(response, self.parse_email)
+            return result
 
     # Captcha handling functions.
     def _has_captcha(self, response):
