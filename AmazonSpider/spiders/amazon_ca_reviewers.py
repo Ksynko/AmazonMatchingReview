@@ -6,18 +6,17 @@ from scrapy.log import ERROR, WARNING, INFO, DEBUG
 from AmazonSpider.items import ReviewItem
 from __init__ import cond_set, cond_set_value, AmazonBaseClass
 
-
 class AmazonSpider(AmazonBaseClass):
-    name = 'amazon_reviewer'
-    allowed_domains = ["amazon.com"]
-    start_urls = ['https://www.amazon.com/review/top-reviewers']
+    name = 'amazon_ca_reviewers'
+    allowed_domains = ["amazon.ca"]
+    start_urls = ['http://www.amazon.ca/review/top-reviewers']
 
     MAX_RETRIES = 3
 
     user_agent = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:35.0) Gecko'
                   '/20100101 Firefox/35.0')
 
-    COUNTRY = 'USA'
+    COUNTRY = 'ca'
 
     def parse_links(self, response):
         links = response.xpath('//tr[contains(@id, "reviewer")]')
@@ -29,10 +28,10 @@ class AmazonSpider(AmazonBaseClass):
                 './td[@class="crNum"]/text()').re('#\s?(\d+,?\d{0,})')
 
             if rank:
-                rank = int(rank[0].replace(',',''))
+                rank = int(rank[0].replace(',', ''))
                 item['rank'] = rank
                 meta = {'item': item}
-                yield Request('http://www.amazon.com'+url[0],
+                yield Request('http://www.amazon.ca'+url[0],
                               meta=meta,
                               callback=self.parse_email)
 
@@ -46,7 +45,7 @@ class AmazonSpider(AmazonBaseClass):
         item = response.meta.get('item')
 
         email = response.xpath(
-            '//a[contains(@href,"mailto")]/span/text()'
+            '//a[contains(@href,"mailto")]/span/text()[contains(., "@")]'
         ).extract()
         if email:
             email = email[0].strip()
