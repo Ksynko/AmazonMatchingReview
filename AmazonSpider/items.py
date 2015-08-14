@@ -19,3 +19,4 @@ class ReviewItem(Item):
     rank = Field()
     reviewer = Field()
     email = Field()
+    country = Field()
