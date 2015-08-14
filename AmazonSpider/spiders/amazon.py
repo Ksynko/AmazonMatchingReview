@@ -84,8 +84,8 @@ class AmazonSpider(Spider):
         meta = response.meta.copy()
         meta['item'] = item
         reviews_url = response.xpath(
-            '//a/span[contains(text(), "Reviews")]/../@href |'
-            '//a[@class="a-link-normal"]/@href[contains(.,"member-reviews")]'
+            '//a[@class="a-link-normal"]/span[contains(text(),'
+            ' "Reviews")]/../@href[contains(.,"member-reviews")]'
         ).extract()
 
         if reviews_url:
